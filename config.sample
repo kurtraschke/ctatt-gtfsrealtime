@@ -1,0 +1,7 @@
+CTATT.key=
+GTFS.path=/home/kurt/Desktop/cta.zip
+refreshInterval.vehicles=30
+
+tripUpdates.url=http://localhost:9000/tripUpdates
+vehiclePositions.url=http://localhost:9000/vehiclePositions
+alerts.url=http://localhost:9000/alerts
