@@ -1,16 +1,29 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2013 Kurt Raschke
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 package com.kurtraschke.ctatt.gtfsrealtime;
 
+import com.kurtraschke.ctatt.gtfsrealtime.services.TrainTrackerDataService;
+import com.kurtraschke.ctatt.gtfsrealtime.services.TripMatchingService;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import javax.inject.Named;
 import java.io.IOException;
 import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -21,7 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.dataformat.xml.JacksonXmlModule;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-import com.google.transit.realtime.GtfsRealtime;
+import com.google.common.collect.ImmutableList;
 import com.google.transit.realtime.GtfsRealtime.FeedEntity;
 import com.google.transit.realtime.GtfsRealtime.Position;
 import com.google.transit.realtime.GtfsRealtime.TripDescriptor;
@@ -47,7 +60,7 @@ import org.onebusaway.gtfs_realtime.exporter.GtfsRealtimeSink;
  *
  * @author kurt
  */
-class TrainTrackerRealtimeProvider {
+public class TrainTrackerRealtimeProvider {
 
   private static final Logger _log = LoggerFactory.getLogger(TrainTrackerRealtimeProvider.class);
   private ScheduledExecutorService _executor;
@@ -55,13 +68,11 @@ class TrainTrackerRealtimeProvider {
   private GtfsRealtimeSink _tripUpdatesSink;
   private GtfsRealtimeSink _alertsSink;
   private TripMatchingService _tms;
-  private XmlMapper xmlMapper;
+  private TrainTrackerDataService _ttds;
   @Inject
   @Named("refreshInterval.vehicles")
   private int _vehicleRefreshInterval;
-  @Inject
-  @Named("CTATT.key")
-  private String _trainTrackerKey;
+  private List<String> _routes = ImmutableList.of("Red", "Blue", "Brn", "G", "Org", "P", "Pink", "Y");
 
   @Inject
   public void setVehiclePositionsSink(@VehiclePositions GtfsRealtimeSink sink) {
@@ -80,13 +91,15 @@ class TrainTrackerRealtimeProvider {
 
   @Inject
   public void setTripMatchingService(TripMatchingService tripMatchingService) {
-    this._tms = tripMatchingService;
+    _tms = tripMatchingService;
+  }
+
+  @Inject
+  public void setTrainTrackerDataService(TrainTrackerDataService trainTrackerDataService) {
+    _ttds = trainTrackerDataService;
   }
 
   public TrainTrackerRealtimeProvider() {
-    JacksonXmlModule m = new JacksonXmlModule();
-    m.setDefaultUseWrapper(false);
-    xmlMapper = new XmlMapper(m);
   }
 
   @PostConstruct
@@ -97,17 +110,14 @@ class TrainTrackerRealtimeProvider {
             _vehicleRefreshInterval, TimeUnit.SECONDS);
   }
 
-  /**
-   * The stop method cancels the recurring vehicle data downloader task.
-   */
   @PreDestroy
   public void stop() {
     _log.info("Stopping GTFS-realtime service");
     _executor.shutdownNow();
   }
 
-  private void refreshVehicles() throws MalformedURLException, IOException, TrainTrackerDataException {
-    Positions p = fetchAllTrains();
+  private void refreshVehicles() throws IOException, TrainTrackerDataException, URISyntaxException {
+    Positions p = _ttds.fetchAllTrains(_routes);
 
     for (Route r : p.routes) {
       if (r.trains != null) {
@@ -123,37 +133,11 @@ class TrainTrackerRealtimeProvider {
     }
   }
 
-  private Positions fetchAllTrains() throws MalformedURLException, IOException, TrainTrackerDataException {
-    URL trainPositions = new URL("http://lapi.transitchicago.com/api/1.0/ttpositions.aspx?rt=Red,Blue,Brn,G,Org,P,Pink,Y&key=" + _trainTrackerKey);
-
-    Positions p = xmlMapper.readValue(trainPositions.openStream(), Positions.class);
-
-    if (p.errorCode != 0) {
-      throw new TrainTrackerDataException(p.errorCode, p.errorName);
-    }
-
-    return p;
-
-  }
-
-  private Follow fetchTrain(String runNumber) throws MalformedURLException, IOException, TrainTrackerDataException {
-    URL trainFollow = new URL("http://lapi.transitchicago.com/api/1.0/ttfollow.aspx?key=" + _trainTrackerKey + "&runnumber=" + runNumber);
-
-    Follow f = xmlMapper.readValue(trainFollow.openStream(), Follow.class);
-
-    if (f.errorCode != 0) {
-      throw new TrainTrackerDataException(f.errorCode, f.errorName);
-    }
-
-    return f;
-
-  }
-
-  private void processTrain(Train train, String route) throws MalformedURLException, IOException, TrainTrackerDataException, TripMatchingException {
+  private void processTrain(Train train, String route) throws IOException, TrainTrackerDataException, TripMatchingException, URISyntaxException {
     List<Eta> etas = null;
 
     try {
-      Follow f = fetchTrain(train.runNumber);
+      Follow f = _ttds.fetchTrain(train.runNumber);
       etas = f.etas;
     } catch (TrainTrackerDataException ex) {
       _log.warn("Falling back to single-station prediction for train " + train.runNumber, ex);

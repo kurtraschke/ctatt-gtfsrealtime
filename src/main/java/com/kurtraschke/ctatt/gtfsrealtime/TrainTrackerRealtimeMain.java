@@ -1,6 +1,17 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2013 Kurt Raschke
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 package com.kurtraschke.ctatt.gtfsrealtime;
 
@@ -35,6 +46,9 @@ import org.onebusaway.cli.Daemonizer;
 import org.onebusaway.gtfs_realtime.exporter.GtfsRealtimeExporter;
 import org.onebusaway.gtfs_realtime.exporter.GtfsRealtimeFileWriter;
 import org.onebusaway.gtfs_realtime.exporter.GtfsRealtimeGuiceBindingTypes;
+import org.onebusaway.gtfs_realtime.exporter.GtfsRealtimeGuiceBindingTypes.Alerts;
+import org.onebusaway.gtfs_realtime.exporter.GtfsRealtimeGuiceBindingTypes.TripUpdates;
+import org.onebusaway.gtfs_realtime.exporter.GtfsRealtimeGuiceBindingTypes.VehiclePositions;
 import org.onebusaway.gtfs_realtime.exporter.GtfsRealtimeServlet;
 import org.onebusaway.guice.jsr250.LifecycleService;
 
@@ -80,17 +94,17 @@ public class TrainTrackerRealtimeMain {
   }
 
   @Inject
-  public void setVehiclePositionsExporter(@GtfsRealtimeGuiceBindingTypes.VehiclePositions GtfsRealtimeExporter exporter) {
+  public void setVehiclePositionsExporter(@VehiclePositions GtfsRealtimeExporter exporter) {
     _vehiclePositionsExporter = exporter;
   }
 
   @Inject
-  public void setTripUpdatesExporter(@GtfsRealtimeGuiceBindingTypes.TripUpdates GtfsRealtimeExporter exporter) {
+  public void setTripUpdatesExporter(@TripUpdates GtfsRealtimeExporter exporter) {
     _tripUpdatesExporter = exporter;
   }
 
   @Inject
-  public void setAlertsExporter(@GtfsRealtimeGuiceBindingTypes.Alerts GtfsRealtimeExporter exporter) {
+  public void setAlertsExporter(@Alerts GtfsRealtimeExporter exporter) {
     _alertsExporter = exporter;
   }
 

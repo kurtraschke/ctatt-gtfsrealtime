@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package com.kurtraschke.ctatt.gtfsrealtime;
+package com.kurtraschke.ctatt.gtfsrealtime.services;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,21 +22,19 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
 
+import java.util.List;
+import java.util.Map;
 import java.util.zip.ZipFile;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.Multimaps;
-import com.google.common.collect.SetMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.kurtraschke.ctatt.gtfsrealtime.gtfs.ScheduledTrip;
 
-import org.onebusaway.collections.beans.PropertyPathExpression;
+import org.onebusaway.collections.MappingLibrary;
 import org.onebusaway.csv_entities.CsvEntityReader;
 import org.onebusaway.csv_entities.CsvInputSource;
-import org.onebusaway.csv_entities.EntityHandler;
 import org.onebusaway.csv_entities.FileCsvInputSource;
+import org.onebusaway.csv_entities.ListEntityHandler;
 import org.onebusaway.csv_entities.ZipFileCsvInputSource;
-import org.onebusaway.csv_entities.exceptions.CsvEntityIOException;
 import org.onebusaway.gtfs.impl.GtfsRelationalDaoImpl;
 import org.onebusaway.gtfs.impl.calendar.CalendarServiceDataFactoryImpl;
 import org.onebusaway.gtfs.model.calendar.CalendarServiceData;
@@ -55,7 +53,7 @@ public class GtfsDaoService {
   private File _gtfsPath;
   private GtfsMutableRelationalDao dao;
   private CalendarServiceData csd;
-  private Multimap<String, ScheduledTrip> scheduledTripMapping = HashMultimap.<String, ScheduledTrip>create();
+  private Map<String, List<ScheduledTrip>> scheduledTripMapping;
 
   public GtfsDaoService() {
   }
@@ -73,14 +71,14 @@ public class GtfsDaoService {
     return csd;
   }
 
-  public Multimap<String, ScheduledTrip> getScheduledTripMapping() {
-    return Multimaps.unmodifiableMultimap(scheduledTripMapping);
+  public Map<String, List<ScheduledTrip>> getScheduledTripMapping() {
+    return ImmutableMap.copyOf(scheduledTripMapping);
   }
 
   private void constructScheduledTripMapping() throws IOException {
     CsvEntityReader reader = new CsvEntityReader();
 
-    MultimapEntityHandler<String, ScheduledTrip> entityHandler = new MultimapEntityHandler<>("scheduledTripId");
+    ListEntityHandler<ScheduledTrip> entityHandler = new ListEntityHandler<>();
 
     reader.addEntityHandler(entityHandler);
 
@@ -95,8 +93,7 @@ public class GtfsDaoService {
     reader.setInputSource(input);
     reader.readEntities(ScheduledTrip.class, input);
 
-    scheduledTripMapping = entityHandler.getEntities();
-
+    scheduledTripMapping = MappingLibrary.mapToValueList(entityHandler.getValues(), "scheduledTripId");
   }
 
   @PostConstruct
@@ -111,29 +108,5 @@ public class GtfsDaoService {
     reader.run();
     CalendarServiceDataFactory csdf = new CalendarServiceDataFactoryImpl(dao);
     csd = csdf.createData();
-  }
-
-  private static class MultimapEntityHandler<K, V> implements EntityHandler {
-
-    private SetMultimap<K, V> entityMap = HashMultimap.<K, V>create();
-    private String keyPath;
-
-    public MultimapEntityHandler(String keyPath) {
-      this.keyPath = keyPath;
-    }
-
-    @Override
-    @SuppressWarnings("unchecked")
-    public void handleEntity(Object bean) {
-
-      K key = (K) PropertyPathExpression.evaluate(bean, keyPath);
-      V value = (V) bean;
-
-      entityMap.put(key, value);
-    }
-
-    public Multimap<K, V> getEntities() {
-      return entityMap;
-    }
   }
 }
