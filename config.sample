@@ -1,5 +1,6 @@
 CTATT.key=
-GTFS.path=/home/kurt/Desktop/cta.zip
+GTFS.path=/path/to/google_transit.zip
+GTFS.agencyId=Chicago Transit Authority
 refreshInterval.vehicles=30
 
 tripUpdates.url=http://localhost:9000/tripUpdates

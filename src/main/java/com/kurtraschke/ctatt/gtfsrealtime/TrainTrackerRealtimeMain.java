@@ -45,7 +45,6 @@ import org.onebusaway.cli.CommandLineInterfaceLibrary;
 import org.onebusaway.cli.Daemonizer;
 import org.onebusaway.gtfs_realtime.exporter.GtfsRealtimeExporter;
 import org.onebusaway.gtfs_realtime.exporter.GtfsRealtimeFileWriter;
-import org.onebusaway.gtfs_realtime.exporter.GtfsRealtimeGuiceBindingTypes;
 import org.onebusaway.gtfs_realtime.exporter.GtfsRealtimeGuiceBindingTypes.Alerts;
 import org.onebusaway.gtfs_realtime.exporter.GtfsRealtimeGuiceBindingTypes.TripUpdates;
 import org.onebusaway.gtfs_realtime.exporter.GtfsRealtimeGuiceBindingTypes.VehiclePositions;

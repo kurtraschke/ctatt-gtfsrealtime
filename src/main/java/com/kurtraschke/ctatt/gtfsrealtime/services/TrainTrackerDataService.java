@@ -85,7 +85,6 @@ public class TrainTrackerDataService {
 
       return p;
     }
-
   }
 
   public Follow fetchTrain(String runNumber) throws URISyntaxException, IOException, TrainTrackerDataException {

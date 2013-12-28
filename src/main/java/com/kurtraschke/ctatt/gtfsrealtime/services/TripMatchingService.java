@@ -25,12 +25,10 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TimeZone;
 
 import com.google.common.collect.Iterables;
 import com.kurtraschke.ctatt.gtfsrealtime.TripMatchingException;
 import com.kurtraschke.ctatt.gtfsrealtime.api.Eta;
-import com.kurtraschke.ctatt.gtfsrealtime.gtfs.ScheduledTrip;
 
 import org.onebusaway.collections.MappingLibrary;
 import org.onebusaway.collections.Min;
@@ -46,6 +44,7 @@ import org.onebusaway.gtfs.services.GtfsRelationalDao;
  * GTFS trips.
  *
  * We then narrow down the GTFS trips by:
+ * - route ID
  * - direction of travel (as determined by terminal station)
  * - active service IDs
  *
@@ -56,22 +55,18 @@ public class TripMatchingService {
 
   @Inject
   GtfsDaoService daoService;
-  String agencyId = "CTA";
 
   public Trip matchTrip(String runNumber, String routeName, String destinationStationId, String destinationStationName, List<Eta> etas) throws TripMatchingException {
     GtfsRelationalDao dao = daoService.getGtfsRelationalDao();
 
-    Collection<ScheduledTrip> candidateTrips = daoService.getScheduledTripMapping().get("R" + runNumber);
+    Collection<Trip> candidateTrips = daoService.getScheduledTripMapping().get("R" + runNumber);
 
     List<Trip> rightRouteTrips = new ArrayList<>();
 
-    for (ScheduledTrip candidateTrip : candidateTrips) {
-      Trip t = dao.getTripForId(new AgencyAndId(agencyId, candidateTrip.tripId));
-
-      if (t.getRoute().getId().getId().equalsIgnoreCase(routeName)) {
-        rightRouteTrips.add(t);
+    for (Trip candidateTrip : candidateTrips) {
+      if (candidateTrip.getRoute().getId().getId().equalsIgnoreCase(routeName)) {
+        rightRouteTrips.add(candidateTrip);
       }
-
     }
 
     if (rightRouteTrips.isEmpty()) {
@@ -87,14 +82,13 @@ public class TripMatchingService {
               || Iterables.getLast(stopTimes).getStop().getId().getId().equals(destinationStationId)) {
         rightDirectionTrips.add(t);
       }
-
     }
 
     if (rightDirectionTrips.isEmpty()) {
       throw new TripMatchingException("No trips to destination found.");
     }
-
-    Calendar c = new GregorianCalendar(TimeZone.getTimeZone("America/Chicago"));
+    
+    Calendar c = new GregorianCalendar(daoService.getAgencyTimeZone());
 
     ServiceDate today = new ServiceDate(c);
     CalendarServiceData csd = daoService.getCalendarServiceData();
@@ -104,7 +98,6 @@ public class TripMatchingService {
     List<Trip> activeTrips = new ArrayList<>();
 
     for (Trip t : rightDirectionTrips) {
-
       if (serviceIds.contains(t.getServiceId())) {
         activeTrips.add(t);
       }
@@ -129,7 +122,7 @@ public class TripMatchingService {
   private double delta(ServiceDate base, List<StopTime> scheduled, List<Eta> actual) throws TripMatchingException {
     double deltaSum = 0;
 
-    long baseTime = base.getAsDate(TimeZone.getTimeZone("America/Chicago")).getTime() / 1000L;
+    long baseTime = base.getAsDate(daoService.getAgencyTimeZone()).getTime() / 1000L;
 
     Map<String, List<StopTime>> stopTimeMap = MappingLibrary.mapToValueList(scheduled, "stop.id.id");
 
@@ -149,9 +142,7 @@ public class TripMatchingService {
 
         minStopTime.add(Math.abs(
                 (scheduledStopTime.getArrivalTime() + baseTime) - arrivalTime), scheduledStopTime);
-
       }
-
       deltaSum += minStopTime.getMinValue();
       comparedStops++;
     }

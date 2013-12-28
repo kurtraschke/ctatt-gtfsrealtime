@@ -22,7 +22,6 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import javax.inject.Named;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
@@ -32,8 +31,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.fasterxml.jackson.dataformat.xml.JacksonXmlModule;
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.transit.realtime.GtfsRealtime.FeedEntity;
 import com.google.transit.realtime.GtfsRealtime.Position;
@@ -156,7 +153,6 @@ public class TrainTrackerRealtimeProvider {
       e.stopId = train.nextStopId;
 
       etas = Collections.singletonList(e);
-
     }
 
     TripDescriptor td = tripDescriptorForTrain(train, etas, route);

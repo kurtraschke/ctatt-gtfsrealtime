@@ -22,22 +22,18 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
 
-import java.util.List;
-import java.util.Map;
-import java.util.zip.ZipFile;
-
-import com.google.common.collect.ImmutableMap;
+import java.util.TimeZone;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.Multimap;
 import com.kurtraschke.ctatt.gtfsrealtime.gtfs.ScheduledTrip;
 
-import org.onebusaway.collections.MappingLibrary;
-import org.onebusaway.csv_entities.CsvEntityReader;
-import org.onebusaway.csv_entities.CsvInputSource;
-import org.onebusaway.csv_entities.FileCsvInputSource;
-import org.onebusaway.csv_entities.ListEntityHandler;
-import org.onebusaway.csv_entities.ZipFileCsvInputSource;
+import org.onebusaway.csv_entities.schema.DefaultEntitySchemaFactory;
 import org.onebusaway.gtfs.impl.GtfsRelationalDaoImpl;
 import org.onebusaway.gtfs.impl.calendar.CalendarServiceDataFactoryImpl;
+import org.onebusaway.gtfs.model.Trip;
 import org.onebusaway.gtfs.model.calendar.CalendarServiceData;
+import org.onebusaway.gtfs.serialization.GtfsEntitySchemaFactory;
 import org.onebusaway.gtfs.serialization.GtfsReader;
 import org.onebusaway.gtfs.services.GtfsMutableRelationalDao;
 import org.onebusaway.gtfs.services.GtfsRelationalDao;
@@ -51,16 +47,18 @@ import org.onebusaway.gtfs.services.calendar.CalendarServiceDataFactory;
 public class GtfsDaoService {
 
   private File _gtfsPath;
+  private String _agencyId;
   private GtfsMutableRelationalDao dao;
   private CalendarServiceData csd;
-  private Map<String, List<ScheduledTrip>> scheduledTripMapping;
+  private Multimap<String, Trip> scheduledTripMapping;
 
   public GtfsDaoService() {
+    scheduledTripMapping = ArrayListMultimap.create();
   }
 
   @Inject
   public void setGtfsPath(@Named("GTFS.path") File gtfsPath) {
-    this._gtfsPath = gtfsPath;
+    _gtfsPath = gtfsPath;
   }
 
   public GtfsRelationalDao getGtfsRelationalDao() {
@@ -71,42 +69,41 @@ public class GtfsDaoService {
     return csd;
   }
 
-  public Map<String, List<ScheduledTrip>> getScheduledTripMapping() {
-    return ImmutableMap.copyOf(scheduledTripMapping);
+  public Multimap<String, Trip> getScheduledTripMapping() {
+    return ImmutableListMultimap.copyOf(scheduledTripMapping);
   }
 
-  private void constructScheduledTripMapping() throws IOException {
-    CsvEntityReader reader = new CsvEntityReader();
+  public TimeZone getAgencyTimeZone() {
+    return csd.getTimeZoneForAgencyId(_agencyId);
+  }
 
-    ListEntityHandler<ScheduledTrip> entityHandler = new ListEntityHandler<>();
+  public String getAgencyId() {
+    return _agencyId;
+  }
 
-    reader.addEntityHandler(entityHandler);
-
-    CsvInputSource input;
-
-    if (_gtfsPath.getName().endsWith(".zip")) {
-      input = new ZipFileCsvInputSource(new ZipFile(_gtfsPath));
-    } else {
-      input = new FileCsvInputSource(_gtfsPath);
-    }
-
-    reader.setInputSource(input);
-    reader.readEntities(ScheduledTrip.class, input);
-
-    scheduledTripMapping = MappingLibrary.mapToValueList(entityHandler.getValues(), "scheduledTripId");
+  @Inject
+  public void setAgencyId(@Named("GTFS.agencyId") String agencyId) {
+    _agencyId = agencyId;
   }
 
   @PostConstruct
   public void start() throws IOException {
-    constructScheduledTripMapping();
-
     dao = new GtfsRelationalDaoImpl();
+
+    DefaultEntitySchemaFactory factory = GtfsEntitySchemaFactory.createEntitySchemaFactory();
+    factory.addExtension(Trip.class, ScheduledTrip.class);
     GtfsReader reader = new GtfsReader();
+    reader.setEntitySchemaFactory(factory);
     reader.setInputLocation(_gtfsPath);
     reader.setEntityStore(dao);
-    reader.setDefaultAgencyId("CTA");
     reader.run();
     CalendarServiceDataFactory csdf = new CalendarServiceDataFactoryImpl(dao);
     csd = csdf.createData();
+
+    for (Trip t : dao.getAllTrips()) {
+      String scheduledTripId = t.getExtension(ScheduledTrip.class).getScheduledTripId();
+
+      scheduledTripMapping.put(scheduledTripId, t);
+    }
   }
 }
